@@ -12,6 +12,15 @@ class UserSerializer(serializers.ModelSerializer):
             'email', 'username', 'first_name', 'last_name', 'password'
         )
 
+    def create(self, validated_data):
+        user = User(
+            email=validated_data['email'],
+            username=validated_data['username']
+        )
+        user.set_password(validated_data['password'])
+        user.save()
+        return user
+
     def validate(self, data):
         if data.get('username') == 'me':
             raise serializers.ValidationError(

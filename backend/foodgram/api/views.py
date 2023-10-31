@@ -1,5 +1,5 @@
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
+from django.db.models import Sum
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status
 from rest_framework.permissions import (AllowAny, IsAuthenticatedOrReadOnly,
@@ -15,8 +15,6 @@ from .serializers import (IngredientSerializer, TagSerializer,
                           RecipeListSerializer, RecipeSerializer,
                           FollowListSerializer, FollowSerializer,
                           FavoriteSerializer, ShoppingCartSerializer)
-from .mixins import CreateDeleteViewSet
-from .permissions import UserOnly
 
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
@@ -121,23 +119,44 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def download_shopping_cart(self, request):
         if not request.user.shopping_cart.exists():
             return Response(status=status.HTTP_400_BAD_REQUEST)
-
+        items = (
+            RecipeIngredient.objects
+            .filter(recipe__in_shopping_cart__user=request.user)
+            .values('ingredient__name', 'ingredient__measurment_unit')
+            .annotate(amount_sum=Sum('amount'))
+        )
+        shopping_cart_text = "Shopping Cart\n"
+        for item in items:
+            ingredient_name = item['ingredient__name']
+            measurement_unit = item['ingredient__measurement_unit']
+            amount = item['amount_sum']
+            shopping_cart_text += (
+                f"{ingredient_name} ({measurement_unit}) - {amount}\n"
+                )
+        response = HttpResponse(shopping_cart_text, content_type='text/plain')
+        response['Content-Disposition'] = (
+            'attachment; filename="shopping_cart.txt"'
+            )
+        return response
 
 
 class UsersViewSet(viewsets.ModelViewSet):
-    "Сериализатор для пользователей"
+    "Вьюсет для пользователей"
     queryset = User.objects.all()
     serializer_class = ProfileSerializer
     permission_classes = (AllowAny,)
 
     @action(
         detail=False, methods=['get'],
-        permission_classes=[UserOnly],
+        permission_classes=[IsAuthenticated],
         url_path='subscriptions',
         serializer_class=FollowListSerializer
     )
-    def subscriptions(self):
-        return self.request.follower.all()
+    def subscriptions(self, request):
+        subscriptions = self.request.user.follower.all()
+        serializer = FollowListSerializer(subscriptions, many=True,
+                                          context={'request': request})
+        return Response(serializer.data)
 
     @action(
         detail=True, methods=['post', 'delete'],
@@ -145,7 +164,7 @@ class UsersViewSet(viewsets.ModelViewSet):
         url_path='subscribe',
         serializer_class=FollowSerializer
         )
-    def subscribe(self, request):
+    def subscribe(self, request, pk=None):
         user_to_subscribe = self.get_object()
         current_user = request.user
         if request.method == 'POST':

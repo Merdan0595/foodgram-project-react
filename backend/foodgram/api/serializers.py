@@ -165,28 +165,25 @@ class FollowListSerializer(serializers.ModelSerializer):
     "Сериализатор для списка подписок"
     recipes = serializers.SerializerMethodField()
     recipes_count = serializers.ReadOnlyField(source='recipes.count')
-    is_subscribed = serializers.SerializerMethodField()
+    is_subscribed = serializers.BooleanField(default=True)
+    email = serializers.ReadOnlyField(source='following.email')
+    username = serializers.ReadOnlyField(source='following.username')
+    first_name = serializers.ReadOnlyField(source='following.first_name')
+    last_name = serializers.ReadOnlyField(source='following.last_name')
+    id = serializers.ReadOnlyField(source='following.id')
 
     class Meta:
         model = User
         fields = (
-            'email', 'id', 'username', 'first_name',
-            'last_name', 'is_subscribed', 'recipes', 'recipes_count'
+            'email', 'id', 'username', 'first_name', 'last_name',
+            'is_subscribed', 'recipes', 'recipes_count'
         )
 
     def get_recipes(self, obj):
-        recipes = obj.recipes.all()
+        recipes = Recipe.objects.filter(author=obj.following)
         return FollowFavoriteRecipeSerializer(
             recipes, many=True, context=self.context
             ).data
-
-    def get_is_subscribed(self, obj):
-        request = self.context.get['request']
-        if request and request.user.is_authenticated:
-            return Follow.objects.filter(
-                user=request.user, following=obj
-                ).exists()
-        return False
 
 
 class FollowSerializer(serializers.ModelSerializer):
