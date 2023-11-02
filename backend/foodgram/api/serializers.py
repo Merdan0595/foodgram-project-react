@@ -46,8 +46,8 @@ class IngredientAmountSerializer(serializers.ModelSerializer):
     name = serializers.ReadOnlyField(source='ingredient.name')
     measurement_unit = serializers.ReadOnlyField(
         source='ingredient.measurement_unit'
-        )
-    amount = serializers.ReadOnlyField(source='ingredient.amount')
+    )
+    amount = serializers.ReadOnlyField()
 
     class Meta:
         model = RecipeIngredient
@@ -72,8 +72,8 @@ class TagSerializer(serializers.ModelSerializer):
 
 class RecipeListSerializer(serializers.ModelSerializer):
     "Сериализатор для списка рецептов"
-    ingredients = IngredientAmountSerializer(
-        many=True)
+    ingredients = IngredientAmountSerializer(source='recipeingredient_set',
+                                             many=True)
     tags = TagSerializer(many=True, read_only=True)
     is_favorited = serializers.SerializerMethodField()
     is_in_shopping_cart = serializers.SerializerMethodField()
@@ -91,17 +91,17 @@ class RecipeListSerializer(serializers.ModelSerializer):
     def get_is_favorited(self, obj):
         request = self.context.get('request')
         return request.user.is_authenticated and obj.favorited.filter(
-                user=request.user).exists()
+            user=request.user).exists()
 
     def get_is_in_shopping_cart(self, obj):
         request = self.context.get('request')
         return request.user.is_authenticated and obj.in_shopping_cart.filter(
-                user=request.user).exists()
+            user=request.user).exists()
 
 
 class RecipeSerializer(serializers.ModelSerializer):
     "Сериализатор для создания рецепта"
-    ingredients = AddIngredientSerializer()
+    ingredients = AddIngredientSerializer(many=True)
     tags = serializers.PrimaryKeyRelatedField(
         queryset=Tag.objects.all(), many=True
     )
@@ -115,11 +115,18 @@ class RecipeSerializer(serializers.ModelSerializer):
             'name', 'text', 'cooking_time',
         )
 
+    def validate_ingredients(self, ingredients):
+        if not ingredients:
+            raise serializers.ValidationError(
+                {'ingredients': 'Минимум один ингридиент обязателен!'}
+            )
+        return ingredients
+
     def validate_tags(self, tags):
         if not tags:
             raise serializers.ValidationError(
                 {'tags': 'Минимум один тег обязателен!'}
-                )
+            )
         if len(tags) != len(set(tags)):
             raise serializers.ValidationError({'tags': 'Теги не уникальны'})
         return tags
@@ -133,8 +140,8 @@ class RecipeSerializer(serializers.ModelSerializer):
 
         for ingredient_data in ingredients_data:
             RecipeIngredient.objects.create(
-                recipe=recipe, ingredient=ingredients_data['id'],
-                amount=ingredients_data['amount'])
+                recipe=recipe, ingredient=ingredient_data['id'],
+                amount=ingredient_data['amount'])
 
         recipe.tags.set(tags_data)
 
@@ -145,7 +152,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         instance.text = validated_data.get('text', instance.text)
         instance.cooking_time = validated_data.get(
             'cooking_time', instance.cooking_time
-            )
+        )
         instance.image = validated_data.get('image', instance.image)
         ingredients_data = validated_data.get('ingredients')
         if ingredients_data:
@@ -153,7 +160,7 @@ class RecipeSerializer(serializers.ModelSerializer):
             for ingredient_data in ingredients_data:
                 RecipeIngredient.objects.create(
                     recipe=instance, **ingredient_data
-                    )
+                )
         tags_data = validated_data.get('tags')
         if tags_data:
             instance.tags.set(tags_data)
@@ -196,7 +203,7 @@ class FollowListSerializer(serializers.ModelSerializer):
         recipes = Recipe.objects.filter(author=obj.following)
         return FollowFavoriteRecipeSerializer(
             recipes, many=True, context=self.context
-            ).data
+        ).data
 
 
 class FollowSerializer(serializers.ModelSerializer):
@@ -222,7 +229,7 @@ class FollowSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         return FollowListSerializer(
             instance.following, context=self.context
-            ).data
+        ).data
 
 
 class FavoriteSerializer(serializers.ModelSerializer):

@@ -1,7 +1,7 @@
 from django.http import HttpResponse
 from django.db.models import Sum
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, filters
 from rest_framework.permissions import (AllowAny, IsAuthenticatedOrReadOnly,
                                         IsAuthenticated)
 from rest_framework.decorators import action
@@ -24,6 +24,8 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = None
     permission_classes = (AllowAny,)
     serializer_class = IngredientSerializer
+    filter_backends = (filters.SearchFilter,)
+    search_fields = ('^name',)
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
@@ -42,7 +44,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_fields = (
         'favorited', 'author', 'in_shopping_cart', 'tags'
-        )
+    )
 
     def get_serializer_class(self):
         if self.action in ('list', 'retrieve'):
@@ -63,7 +65,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 serializer = FavoriteSerializer(favorite)
                 return Response(
                     serializer.data, status=status.HTTP_201_CREATED
-                    )
+                )
             else:
                 return Response({'message': 'Рецепт уже в избранном'},
                                 status=status.HTTP_400_BAD_REQUEST)
@@ -76,7 +78,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 return Response(
                     {'message': 'Рецепт не найден в избранном'},
                     status=status.HTTP_400_BAD_REQUEST
-                    )
+                )
 
     @action(
         detail=True, methods=['post', 'delete'],
@@ -90,11 +92,11 @@ class RecipeViewSet(viewsets.ModelViewSet):
             if not user.in_shopping_cart.filter(pk=recipe.pk).exists():
                 shopping_cart = ShoppingCart.objects.create(
                     user=user, recipe=recipe
-                    )
+                )
                 serializer = ShoppingCartSerializer(shopping_cart)
                 return Response(
                     serializer.data, status=status.HTTP_201_CREATED
-                    )
+                )
             else:
                 return Response({'message': 'Рецепт уже в списке покупок'},
                                 status=status.HTTP_400_BAD_REQUEST)
@@ -102,14 +104,14 @@ class RecipeViewSet(viewsets.ModelViewSet):
             try:
                 shopping_cart = ShoppingCart.objects.get(
                     user=user, recipe=recipe
-                    )
+                )
                 shopping_cart.delete()
                 return Response(status=status.HTTP_204_NO_CONTENT)
             except ShoppingCart.DoesNotExist:
                 return Response(
                     {'message': 'Рецепт не найден в списке покупок'},
                     status=status.HTTP_400_BAD_REQUEST
-                    )
+                )
 
     @action(
         detail=False, methods=['get'],
@@ -132,11 +134,11 @@ class RecipeViewSet(viewsets.ModelViewSet):
             amount = item['amount_sum']
             shopping_cart_text += (
                 f"{ingredient_name} ({measurement_unit}) - {amount}\n"
-                )
+            )
         response = HttpResponse(shopping_cart_text, content_type='text/plain')
         response['Content-Disposition'] = (
             'attachment; filename="shopping_cart.txt"'
-            )
+        )
         return response
 
 
@@ -163,7 +165,7 @@ class UsersViewSet(viewsets.ModelViewSet):
         permission_classes=[IsAuthenticated],
         url_path='subscribe',
         serializer_class=FollowSerializer
-        )
+    )
     def subscribe(self, request, pk=None):
         user_to_subscribe = self.get_object()
         current_user = request.user
@@ -172,7 +174,7 @@ class UsersViewSet(viewsets.ModelViewSet):
                                                 ).exists():
                 Follow.objects.create(
                     user=current_user, following=user_to_subscribe
-                    )
+                )
                 return Response(status=status.HTTP_201_CREATED)
 
         elif request.method == 'DELETE':
