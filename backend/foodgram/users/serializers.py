@@ -1,6 +1,6 @@
 import re
 from rest_framework import serializers
-
+from djoser.serializers import UserCreateSerializer
 from recipes.models import Follow
 from .models import User
 
@@ -14,7 +14,7 @@ class UsersViewSerializer(serializers.ModelSerializer):
         )
 
 
-class UserSerializer(serializers.ModelSerializer):
+class UserSerializer(UserCreateSerializer):
     "Сериализатор для регистрации пользователя"
     class Meta:
         model = User

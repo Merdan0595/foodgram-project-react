@@ -39,20 +39,20 @@ class Recipe(models.Model):
     "Модель рецепта"
     author = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='recipes'
-        )
+    )
     ingredients = models.ManyToManyField(
         Ingredient, through='RecipeIngredient',
         related_name='recipe_ingredients'
-        )
+    )
     tags = models.ManyToManyField(
         Tag, related_name='recipes'
-        )
+    )
     image = models.ImageField(upload_to='image/')
     name = models.CharField(max_length=250)
     text = models.TextField()
     cooking_time = models.IntegerField(
         validators=[MinValueValidator(MIN_NUMBER)]
-        )
+    )
     is_favorited = models.BooleanField(default=False)
     is_in_shopping_cart = models.BooleanField(default=False)
 
@@ -85,7 +85,8 @@ class Follow(models.Model):
 
 
 class Favorite(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE,
+                             related_name='favorite')
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE,
                                related_name='favorited')
 

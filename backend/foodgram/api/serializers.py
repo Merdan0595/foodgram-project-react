@@ -208,6 +208,9 @@ class FollowListSerializer(serializers.ModelSerializer):
 
 class FollowSerializer(serializers.ModelSerializer):
     "Сериализатор для подписки"
+    following = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+
     class Meta:
         model = Follow
         fields = ('user', 'following')
@@ -240,7 +243,7 @@ class FavoriteSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         return FollowFavoriteRecipeSerializer(
-            instance.favorited, context=self.context
+            instance.recipe, context=self.context
         ).data
 
 
@@ -252,5 +255,5 @@ class ShoppingCartSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         return FollowFavoriteRecipeSerializer(
-            instance.in_shopping_cart, context=self.context
+            instance.recipe, context=self.context
         ).data

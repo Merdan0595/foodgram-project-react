@@ -25,13 +25,14 @@ services:
     command: cp -r /app/build/. /frontend_static/
     volumes:
       - static:/frontend_static
-  gateway:
-    image: merdan0595/foodgram_nginx
+  nginx:
+    image: nginx:1.19.3
     env_file: .env
-    volumes:
-      - static:/static
-      - media:/app/media
     ports:
       - 6000:80
-    depends_on:
-      - backend
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ../frontend/build:/usr/share/nginx/html/
+      - ../docs/:/usr/share/nginx/html/api/docs/
+      - static:/static/
+      - media:/app/media

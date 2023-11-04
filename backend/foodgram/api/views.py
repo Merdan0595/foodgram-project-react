@@ -6,11 +6,12 @@ from rest_framework.permissions import (AllowAny, IsAuthenticatedOrReadOnly,
                                         IsAuthenticated)
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from djoser.views import UserViewSet
 
 from recipes.models import (Ingredient, Tag, Recipe, Follow,
                             Favorite, ShoppingCart, RecipeIngredient)
 from users.models import User
-from users.serializers import ProfileSerializer
+from users.serializers import ProfileSerializer, UserSerializer
 from .serializers import (IngredientSerializer, TagSerializer,
                           RecipeListSerializer, RecipeSerializer,
                           FollowListSerializer, FollowSerializer,
@@ -43,7 +44,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     permission_classes = (IsAuthenticatedOrReadOnly,)
     filter_backends = (DjangoFilterBackend,)
     filterset_fields = (
-        'favorited', 'author', 'in_shopping_cart', 'tags'
+        'is_favorited', 'author', 'in_shopping_cart', 'tags'
     )
 
     def get_serializer_class(self):
@@ -60,7 +61,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         recipe = self.get_object()
         user = request.user
         if request.method == 'POST':
-            if not user.favorited.filter(pk=recipe.pk).exists():
+            if not user.favorite.filter(pk=recipe.pk).exists():
                 favorite = Favorite.objects.create(user=user, recipe=recipe)
                 serializer = FavoriteSerializer(favorite)
                 return Response(
@@ -89,7 +90,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         recipe = self.get_object()
         user = request.user
         if request.method == 'POST':
-            if not user.in_shopping_cart.filter(pk=recipe.pk).exists():
+            if not user.shopping_cart.filter(pk=recipe.pk).exists():
                 shopping_cart = ShoppingCart.objects.create(
                     user=user, recipe=recipe
                 )
@@ -124,7 +125,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         items = (
             RecipeIngredient.objects
             .filter(recipe__in_shopping_cart__user=request.user)
-            .values('ingredient__name', 'ingredient__measurment_unit')
+            .values('ingredient__name', 'ingredient__measurement_unit')
             .annotate(amount_sum=Sum('amount'))
         )
         shopping_cart_text = "Shopping Cart\n"
@@ -142,17 +143,32 @@ class RecipeViewSet(viewsets.ModelViewSet):
         return response
 
 
-class UsersViewSet(viewsets.ModelViewSet):
+class UsersViewSet(UserViewSet):
     "Вьюсет для пользователей"
     queryset = User.objects.all()
     serializer_class = ProfileSerializer
     permission_classes = (AllowAny,)
 
+    def get_permissions(self):
+        if self.action == 'create':
+            self.permission_classes = [AllowAny]
+        elif self.action in ['subscriptions', 'subscribe']:
+            self.permission_classes = [IsAuthenticated]
+        return super().get_permissions()
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return UserSerializer
+        elif self.action == 'subscribe':
+            return FollowSerializer
+        elif self.action == 'subscriptions':
+            return FollowListSerializer
+        return super().get_serializer_class()
+
     @action(
         detail=False, methods=['get'],
         permission_classes=[IsAuthenticated],
         url_path='subscriptions',
-        serializer_class=FollowListSerializer
     )
     def subscriptions(self, request):
         subscriptions = self.request.user.follower.all()
@@ -164,24 +180,26 @@ class UsersViewSet(viewsets.ModelViewSet):
         detail=True, methods=['post', 'delete'],
         permission_classes=[IsAuthenticated],
         url_path='subscribe',
-        serializer_class=FollowSerializer
     )
-    def subscribe(self, request, pk=None):
+    def subscribe(self, request, *args, **kwargs):
         user_to_subscribe = self.get_object()
         current_user = request.user
         if request.method == 'POST':
-            if not current_user.follower.filter(following=user_to_subscribe
-                                                ).exists():
+            if not current_user.follower.filter(
+                    following=user_to_subscribe).exists():
                 Follow.objects.create(
                     user=current_user, following=user_to_subscribe
                 )
                 return Response(status=status.HTTP_201_CREATED)
-
+            else:
+                return Response({'message': 'Пользователь уже подписан'},
+                                status=status.HTTP_400_BAD_REQUEST)
         elif request.method == 'DELETE':
-            if current_user.follower.filter(following=user_to_subscribe
-                                            ).exists():
-                Follow.objects.filter(
-                    user=current_user, following=user_to_subscribe).delete()
+            if current_user.follower.filter(
+                    following=user_to_subscribe).exists():
+                current_user.follower.get(following=user_to_subscribe).delete()
                 return Response(status=status.HTTP_204_NO_CONTENT)
             else:
-                return Response(status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {'message': 'Пользователь не найден в подписках'},
+                    status=status.HTTP_400_BAD_REQUEST)
