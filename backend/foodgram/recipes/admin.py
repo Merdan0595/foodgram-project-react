@@ -9,7 +9,8 @@ class BaseAdmin(admin.ModelAdmin):
 
 @admin.register(Ingredient)
 class IngredientAdmin(BaseAdmin):
-    pass
+    list_display = ('name', 'measurement_unit')
+    list_filter = ('name', )
 
 
 @admin.register(Tag)
@@ -26,9 +27,10 @@ class RecipeIngredientsAdmin(admin.TabularInline):
 @admin.register(Recipe)
 class RecipeAdmin(admin.ModelAdmin):
 
-    list_display = ('id', 'name', 'cooking_time',
-                    'get_ingredients')
-    list_display_links = ('name',)
+    list_display = ('name', 'author', 'cooking_time',
+                    'get_ingredients', 'get_favorites_count')
+    list_display_links = ('name', 'author')
+    list_filter = ('name', 'author', 'tags')
     inlines = (RecipeIngredientsAdmin,)
 
     def get_ingredients(self, obj):
@@ -36,3 +38,8 @@ class RecipeAdmin(admin.ModelAdmin):
         return ', '.join(
             [f' {item.ingredient.name} {item.amount} '
              f'{item.ingredient.measurement_unit}' for item in queryset])
+
+    def get_favorites_count(self, obj):
+        return obj.favorited.count()
+
+    get_favorites_count.short_description = 'Favorites Count'

@@ -1,7 +1,10 @@
 import re
+
 from rest_framework import serializers
 from djoser.serializers import UserCreateSerializer
+
 from recipes.models import Follow
+from recipes.constants import REGEX
 from .models import User
 
 
@@ -22,6 +25,33 @@ class UserSerializer(UserCreateSerializer):
             'email', 'username', 'first_name', 'last_name', 'password'
         )
 
+    def validate_username(self, username):
+        if not re.match(REGEX, username):
+            raise serializers.ValidationError('Неправильный формат логина')
+        if username == 'me':
+            raise serializers.ValidationError(
+                'Нельзя использовать имя "me"'
+            )
+        if User.objects.filter(username=username).exists():
+            raise serializers.ValidationError(
+                'Пользователь с таким логином уже существует'
+            )
+        return username
+
+    def validate_email(self, email):
+        if User.objects.filter(email=email).exists():
+            raise serializers.ValidationError(
+                'Пользователь с такой почтой уже существует'
+            )
+        return email
+
+    def validate(self, data):
+        data = super().validate(data)
+        self.validate_username(username=data['username'])
+        self.validate_email(email=data['email'])
+
+        return data
+
     def create(self, validated_data):
         user = User(
             email=validated_data['email'],
@@ -32,28 +62,6 @@ class UserSerializer(UserCreateSerializer):
         user.set_password(validated_data['password'])
         user.save()
         return user
-
-    def validate(self, data):
-        username = data.get('username')
-
-        if not re.match(r'^[\w.@+-]+$', username):
-            raise serializers.ValidationError('Неправильный формат логина')
-        if username == 'me':
-            raise serializers.ValidationError(
-                'Нельзя использовать имя "me"'
-            )
-        if not User.objects.filter(
-            username=username, email=data.get('email')
-        ).exists():
-            if User.objects.filter(username=username):
-                raise serializers.ValidationError(
-                    'Пользователь с таким логином уже существует'
-                )
-            if User.objects.filter(email=data.get("email")):
-                raise serializers.ValidationError(
-                    'Пользователь с такой почтой уже существует'
-                )
-        return data
 
     def to_representation(self, instance):
         return UsersViewSerializer(instance, context=self.context).data

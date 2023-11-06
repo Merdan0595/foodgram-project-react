@@ -2,13 +2,11 @@ from django.db import models
 from django.core.validators import RegexValidator, MinValueValidator
 
 from users.models import User
-
-REGEX = r'^[-a-zA-Z0-9_]+$'
-MIN_NUMBER = 1
+from .constants import REGEX, MIN_NUMBER
 
 
 class Tag(models.Model):
-    "Модель для Тэга"
+    "Модель тэга"
     name = models.CharField(max_length=200, unique=True)
     color = models.CharField(max_length=7, unique=True)
     slug = models.SlugField(
@@ -16,7 +14,10 @@ class Tag(models.Model):
         validators=[RegexValidator(regex=REGEX)],
         unique=True
     )
-    REQUIRED_FIELDS = ('name', 'color', 'slug')
+
+    class Meta:
+        verbose_name = 'Тэг'
+        verbose_name_plural = 'Тэги'
 
     def __str__(self):
         return self.name
@@ -26,10 +27,11 @@ class Ingredient(models.Model):
     "Модель ингредиента"
     name = models.CharField(max_length=200)
     measurement_unit = models.CharField(max_length=200)
-    REQUIRED_FIELDS = ('name', 'measurement_unit')
 
     class Meta:
         ordering = ('name',)
+        verbose_name = 'Ингредиент'
+        verbose_name_plural = 'Ингредиенты'
 
     def __str__(self):
         return self.name
@@ -50,18 +52,23 @@ class Recipe(models.Model):
     image = models.ImageField(upload_to='image/')
     name = models.CharField(max_length=250)
     text = models.TextField()
-    cooking_time = models.IntegerField(
+    cooking_time = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(MIN_NUMBER)]
     )
-    is_favorited = models.BooleanField(default=False)
-    is_in_shopping_cart = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = 'Рецепт'
+        verbose_name_plural = 'Рецепты'
+
+    def __str__(self):
+        return self.name
 
 
 class RecipeIngredient(models.Model):
     "Связь рецепта с ингредиентами с добавлением количества"
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
     ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
-    amount = models.IntegerField(
+    amount = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(MIN_NUMBER)]
     )
 
@@ -76,6 +83,8 @@ class Follow(models.Model):
     )
 
     class Meta:
+        verbose_name = 'Подписка'
+        verbose_name_plural = 'Подписки'
         constraints = [
             models.UniqueConstraint(
                 fields=['user', 'following'],
@@ -85,20 +94,24 @@ class Follow(models.Model):
 
 
 class Favorite(models.Model):
+    "Модель избранного"
     user = models.ForeignKey(User, on_delete=models.CASCADE,
                              related_name='favorite')
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE,
                                related_name='favorited')
 
     class Meta:
+        verbose_name = 'Избранное'
         unique_together = ('user', 'recipe')
 
 
 class ShoppingCart(models.Model):
+    "Модель списка покупок"
     user = models.ForeignKey(User, on_delete=models.CASCADE,
                              related_name='shopping_cart')
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE,
                                related_name='in_shopping_cart')
 
     class Meta:
+        verbose_name = 'Список покупок'
         unique_together = ('user', 'recipe')
