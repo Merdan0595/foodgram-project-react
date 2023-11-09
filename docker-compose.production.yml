@@ -1,9 +1,9 @@
 version: '3'
 
 volumes:
-  pg_data:
-  static:
-  media:
+  foodgram_data:
+  foodgram_static:
+  foodgram_media:
   frontend_static:
 
 services:
@@ -13,29 +13,29 @@ services:
     ports:
       - 5432:5432
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - foodgram_data:/var/lib/postgresql/data/
   backend:
     image: merdan0595/foodgram_backend
     env_file: .env
     volumes:
-      - static:/backend_static
-      - media:/app/media
+      - foodgram_static:/app/backend_static/static
+      - foodgram_media:/app/media
+      - redoc:/app/docs
     depends_on:
       - db
   frontend:
     env_file: .env
     image: merdan0595/foodgram_frontend
-    command: cp -r /app/build/. /frontend_static/
     volumes:
-      - frontend_static:/frontend_static
+      - frontend_static:/app/build/
   gateway:
-    image: merdan0595/foodgram_gateway
+    image: nginx:1.22.1
     env_file: .env
     ports:
-      - 6000:80
+      - '6000:80'
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
       - frontend_static:/usr/share/nginx/html/
-      - ./docs/:/usr/share/nginx/html/api/docs/
-      - static:/staticfiles
-      - media:/app/media
+      - redoc:/usr/share/nginx/html/api/docs/
+      - foodgram_static:/var/html/static
+      - foodgram_media:/var/html/media
