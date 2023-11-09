@@ -35,7 +35,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    # 'django.middleware.csrf.CsrfViewMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -125,6 +125,10 @@ DJOSER = {
     'PASSWORD_CHANGED_EMAIL_CONFIRMATION': False,
     'HIDE_USERS': False,
 }
+
+CSRF_COOKIE_SECURE = True
+
+CSRF_TRUSTED_ORIGINS = ['http://158.160.27.232', 'https://delovoynos.hopto.org', 'https://*hopto.org']
 
 LANGUAGE_CODE = 'en-us'
 
