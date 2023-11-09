@@ -61,11 +61,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
             return RecipeListSerializer
         return RecipeSerializer
 
-    def get_serializer_class(self):
-        if self.action in ('list', 'retrieve'):
-            return RecipeListSerializer
-        return RecipeSerializer
-
     def add_favorite_or_shopping_cart(self, request, is_favorite):
         recipe = self.get_object()
         user = request.user
