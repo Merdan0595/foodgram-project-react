@@ -104,7 +104,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         queryset=Tag.objects.all(), many=True
     )
     author = ProfileSerializer(read_only=True)
-    image = Base64ImageField()
+    image = Base64ImageField(required=True, allow_null=False)
 
     class Meta:
         model = Recipe
@@ -139,14 +139,7 @@ class RecipeSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'tags': 'Теги не уникальны'})
         return tags
 
-    @transaction.atomic
-    def create(self, validated_data):
-        ingredients_data = validated_data.pop('ingredients')
-        tags_data = validated_data.pop('tags')
-        request = self.context.get('request')
-        author = request.user
-        recipe = Recipe.objects.create(author=author, **validated_data)
-
+    def bulk_ingredients(self, ingredients_data, recipe):
         recipe_ingredients = []
         for ingredient_data in ingredients_data:
             recipe_ingredients.append(RecipeIngredient(
@@ -156,20 +149,33 @@ class RecipeSerializer(serializers.ModelSerializer):
             ))
         RecipeIngredient.objects.bulk_create(recipe_ingredients)
 
-        recipe.tags.set(tags_data)
+        return
 
+    @transaction.atomic
+    def create(self, validated_data):
+        ingredients_data = validated_data.pop('ingredients')
+        tags_data = validated_data.pop('tags')
+        request = self.context.get('request')
+        author = request.user
+        recipe = Recipe.objects.create(author=author, **validated_data)
+        self.bulk_ingredients(ingredients_data, recipe)
+        recipe.tags.set(tags_data)
         return recipe
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        tags_data = validated_data.get('tags')
+        ingredients_data = validated_data.pop('ingredients')
+        tags_data = validated_data.pop('tags')
+        if ingredients_data is None or tags_data is None:
+            raise serializers.ValidationError(
+                {'error':
+                 'Теги и ингредиенты необходимы для обновления рецепта'}
+            )
+        self.bulk_ingredients(ingredients_data, instance)
         if tags_data:
             instance.tags.set(tags_data)
 
-        instance.save()
-        return instance
+        return super().update(instance, validated_data)
 
     def to_representation(self, instance):
         return RecipeListSerializer(instance, context=self.context).data
@@ -188,12 +194,7 @@ class FollowListSerializer(serializers.ModelSerializer):
     """Сериализатор для списка подписок."""
     recipes = serializers.SerializerMethodField()
     recipes_count = serializers.ReadOnlyField(source='recipes.count')
-    is_subscribed = serializers.BooleanField(default=True)
-    email = serializers.ReadOnlyField(source='following.email')
-    username = serializers.ReadOnlyField(source='following.username')
-    first_name = serializers.ReadOnlyField(source='following.first_name')
-    last_name = serializers.ReadOnlyField(source='following.last_name')
-    id = serializers.ReadOnlyField(source='following.id')
+    is_subscribed = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -203,10 +204,22 @@ class FollowListSerializer(serializers.ModelSerializer):
         )
 
     def get_recipes(self, obj):
-        recipes = Recipe.objects.filter(author=obj.following)
+        request = self.context.get('request')
+        limit = request.GET.get('recipes_limit')
+        recipes = Recipe.objects.filter(author=obj)
+        if limit:
+            recipes = recipes[:int(limit)]
         return FollowFavoriteRecipeSerializer(
             recipes, many=True, context=self.context
         ).data
+
+    def get_is_subscribed(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return Follow.objects.filter(
+                user=request.user, following=obj
+            ).exists()
+        return False
 
 
 class FollowSerializer(serializers.ModelSerializer):
@@ -233,8 +246,9 @@ class FollowSerializer(serializers.ModelSerializer):
         return data
 
     def to_representation(self, instance):
+        print(instance)
         return FollowListSerializer(
-            instance.following, context=self.context
+            instance['following'], context=self.context
         ).data
 
 

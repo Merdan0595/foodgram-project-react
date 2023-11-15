@@ -6,7 +6,7 @@ from .constants import REGEX, MIN_NUMBER
 
 
 class Tag(models.Model):
-    "Модель тэга"
+    """Модель тэга."""
     name = models.CharField(max_length=200, unique=True)
     color = models.CharField(max_length=7, unique=True)
     slug = models.SlugField(
@@ -24,7 +24,7 @@ class Tag(models.Model):
 
 
 class Ingredient(models.Model):
-    "Модель ингредиента"
+    """Модель ингредиента."""
     name = models.CharField(max_length=200)
     measurement_unit = models.CharField(max_length=200)
 
@@ -38,7 +38,7 @@ class Ingredient(models.Model):
 
 
 class Recipe(models.Model):
-    "Модель рецепта"
+    """Модель рецепта."""
     author = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='recipes'
     )
@@ -50,7 +50,7 @@ class Recipe(models.Model):
         Tag, related_name='recipes'
     )
     image = models.ImageField(upload_to='image/')
-    name = models.CharField(max_length=250)
+    name = models.CharField(max_length=200)
     text = models.TextField()
     cooking_time = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(MIN_NUMBER)]
@@ -65,7 +65,7 @@ class Recipe(models.Model):
 
 
 class RecipeIngredient(models.Model):
-    "Связь рецепта с ингредиентами с добавлением количества"
+    """Связь рецепта с ингредиентами с добавлением количества."""
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
     ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
     amount = models.PositiveSmallIntegerField(
@@ -74,7 +74,7 @@ class RecipeIngredient(models.Model):
 
 
 class Follow(models.Model):
-    "Модель подписки"
+    """Модель подписки."""
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='follower'
     )
@@ -94,7 +94,7 @@ class Follow(models.Model):
 
 
 class Favorite(models.Model):
-    "Модель избранного"
+    """Модель избранного."""
     user = models.ForeignKey(User, on_delete=models.CASCADE,
                              related_name='favorite')
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE,
@@ -106,7 +106,7 @@ class Favorite(models.Model):
 
 
 class ShoppingCart(models.Model):
-    "Модель списка покупок"
+    """Модель списка покупок."""
     user = models.ForeignKey(User, on_delete=models.CASCADE,
                              related_name='shopping_cart')
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE,

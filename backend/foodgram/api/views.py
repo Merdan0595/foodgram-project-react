@@ -2,22 +2,24 @@ from django.shortcuts import render
 from django.http import HttpResponse, HttpResponseNotFound
 from django.db.models import Sum
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets, status, filters
+from rest_framework import viewsets, status
 from rest_framework.permissions import (AllowAny, IsAuthenticatedOrReadOnly,
                                         IsAuthenticated)
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.pagination import LimitOffsetPagination
 from djoser.views import UserViewSet
 
 from recipes.models import (Ingredient, Tag, Recipe, Follow,
                             Favorite, ShoppingCart, RecipeIngredient)
 from users.models import User
 from users.serializers import ProfileSerializer, UserSerializer
+from .permissions import IsRecipeAuthor
 from .serializers import (IngredientSerializer, TagSerializer,
                           RecipeListSerializer, RecipeSerializer,
                           FollowListSerializer, FollowSerializer,
                           FavoriteSerializer, ShoppingCartSerializer)
-from .filters import RecipeFilter
+from .filters import RecipeFilter, IngredientFilter
 
 
 def error_404_view(request, exception):
@@ -31,7 +33,7 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = None
     permission_classes = (AllowAny,)
     serializer_class = IngredientSerializer
-    filter_backends = (filters.SearchFilter,)
+    filter_backends = (IngredientFilter,)
     search_fields = ('^name',)
 
 
@@ -52,7 +54,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     :def download_shopping_cart: Скачать список покупок.
     """
     queryset = Recipe.objects.all()
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    permission_classes = (IsAuthenticatedOrReadOnly, IsRecipeAuthor)
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
 
@@ -166,7 +168,7 @@ class UsersViewSet(UserViewSet):
     def get_permissions(self):
         if self.action == 'create':
             self.permission_classes = [AllowAny]
-        elif self.action in ['subscriptions', 'subscribe']:
+        elif self.action in ['subscriptions', 'subscribe', 'me']:
             self.permission_classes = [IsAuthenticated]
         return super().get_permissions()
 
@@ -185,35 +187,47 @@ class UsersViewSet(UserViewSet):
         url_path='subscriptions',
     )
     def subscriptions(self, request):
-        subscriptions = self.request.user.follower.all()
-        serializer = FollowListSerializer(subscriptions, many=True,
-                                          context={'request': request})
-        return Response(serializer.data)
+        subscriptions = User.objects.filter(following__user=self.request.user)
+        paginator = LimitOffsetPagination()
+        subscriptions_paginated = paginator.paginate_queryset(
+            subscriptions, request
+        )
+        serializer = FollowListSerializer(
+            subscriptions_paginated, many=True, context={'request': request}
+        )
+        return paginator.get_paginated_response(
+            serializer.data, status=status.HTTP_200_OK
+        )
 
     @action(
-        detail=True, methods=['post', 'delete'],
+        detail=True, methods=['post'],
         permission_classes=[IsAuthenticated],
         url_path='subscribe',
     )
     def subscribe(self, request, id):
         user_to_subscribe = self.get_object()
         current_user = request.user
-        if request.method == 'POST':
-            if not current_user.follower.filter(
-                    following=user_to_subscribe).exists():
-                Follow.objects.create(
-                    user=current_user, following=user_to_subscribe
-                )
-                return Response(status=status.HTTP_201_CREATED)
-            else:
-                return Response({'message': 'Пользователь уже подписан'},
-                                status=status.HTTP_400_BAD_REQUEST)
-        elif request.method == 'DELETE':
-            if current_user.follower.filter(
-                    following=user_to_subscribe).exists():
-                current_user.follower.get(following=user_to_subscribe).delete()
-                return Response(status=status.HTTP_204_NO_CONTENT)
-            else:
-                return Response(
-                    {'message': 'Пользователь не найден в подписках'},
-                    status=status.HTTP_400_BAD_REQUEST)
+        serializer = FollowSerializer(data={'user': current_user.id,
+                                            'following': user_to_subscribe.id},
+                                      context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        if not current_user.follower.filter(following=user_to_subscribe
+                                            ).exists():
+            Follow.objects.create(
+                user=current_user, following=user_to_subscribe
+            )
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response({'message': 'Пользователь уже подписан'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+    @subscribe.mapping.delete
+    def delete_subscribe(self, request, id):
+        user_to_subscribe = self.get_object()
+        current_user = request.user
+        if current_user.follower.filter(following=user_to_subscribe).exists():
+            current_user.follower.get(following=user_to_subscribe).delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        else:
+            return Response({'message': 'Пользователь не найден в подписках'},
+                            status=status.HTTP_400_BAD_REQUEST)

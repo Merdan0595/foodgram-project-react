@@ -6,7 +6,7 @@ from recipes.constants import REGEX
 
 
 class User(AbstractUser):
-    "Модель пользователя"
+    """Модель пользователя."""
     username = models.CharField(
         max_length=150,
         unique=True,

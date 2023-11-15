@@ -9,7 +9,7 @@ from .models import User
 
 
 class UsersViewSerializer(serializers.ModelSerializer):
-    "Сериализатор для возврата пользователя при регистрации"
+    """Сериализатор для возврата пользователя при регистрации."""
     class Meta:
         model = User
         fields = (
@@ -18,7 +18,7 @@ class UsersViewSerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(UserCreateSerializer):
-    "Сериализатор для регистрации пользователя"
+    """Сериализатор для регистрации пользователя."""
     class Meta:
         model = User
         fields = (
@@ -68,8 +68,7 @@ class UserSerializer(UserCreateSerializer):
 
 
 class ProfileSerializer(serializers.ModelSerializer):
-    "Сериализатор для джосера с возвратом информации"
-    "о подписке"
+    """Сериализатор для джосера с возвратом информации о подписке."""
     is_subscribed = serializers.SerializerMethodField()
 
     class Meta:

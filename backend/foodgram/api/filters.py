@@ -1,3 +1,4 @@
+from rest_framework.filters import SearchFilter
 from django_filters.rest_framework import (ModelMultipleChoiceFilter,
                                            FilterSet, BooleanFilter,
                                            NumberFilter)
@@ -29,3 +30,7 @@ class RecipeFilter(FilterSet):
             return queryset.filter(favorited__user=self.request.user)
         else:
             return queryset
+
+
+class IngredientFilter(SearchFilter):
+    search_param = 'name'
