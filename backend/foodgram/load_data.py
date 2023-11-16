@@ -4,12 +4,13 @@ import sys
 
 import django
 from foodgram.settings import BASE_DIR
+from recipes.models import Ingredient
+
 
 sys.path.append(BASE_DIR)
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "foodgram.settings")
 django.setup()
 
-from recipes.models import Ingredient
 
 path = os.path.join(BASE_DIR, 'data')
 os.chdir(path)
