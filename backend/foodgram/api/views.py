@@ -7,13 +7,13 @@ from rest_framework.permissions import (AllowAny, IsAuthenticatedOrReadOnly,
                                         IsAuthenticated)
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.pagination import LimitOffsetPagination
 from djoser.views import UserViewSet
 
 from recipes.models import (Ingredient, Tag, Recipe, Follow,
                             Favorite, ShoppingCart, RecipeIngredient)
 from users.models import User
 from users.serializers import ProfileSerializer, UserSerializer
+from .pagination import CustomPagination
 from .permissions import IsRecipeAuthor
 from .serializers import (IngredientSerializer, TagSerializer,
                           RecipeListSerializer, RecipeSerializer,
@@ -188,7 +188,7 @@ class UsersViewSet(UserViewSet):
     )
     def subscriptions(self, request):
         subscriptions = User.objects.filter(following__user=self.request.user)
-        paginator = LimitOffsetPagination()
+        paginator = CustomPagination()
         subscriptions_paginated = paginator.paginate_queryset(
             subscriptions, request
         )
