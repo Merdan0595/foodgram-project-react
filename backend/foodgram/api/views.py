@@ -195,9 +195,7 @@ class UsersViewSet(UserViewSet):
         serializer = FollowListSerializer(
             subscriptions_paginated, many=True, context={'request': request}
         )
-        return paginator.get_paginated_response(
-            serializer.data, status=status.HTTP_200_OK
-        )
+        return paginator.get_paginated_response(serializer.data)
 
     @action(
         detail=True, methods=['post'],
