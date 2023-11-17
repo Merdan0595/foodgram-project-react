@@ -53,7 +53,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     :def shopping_cart: Добавить(удалить) в список покупок.
     :def download_shopping_cart: Скачать список покупок.
     """
-    queryset = Recipe.objects.all()
+    queryset = Recipe.objects.all().order_by('-id')
     permission_classes = (IsAuthenticatedOrReadOnly, IsRecipeAuthor)
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter

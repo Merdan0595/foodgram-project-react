@@ -149,8 +149,6 @@ class RecipeSerializer(serializers.ModelSerializer):
             ))
         RecipeIngredient.objects.bulk_create(recipe_ingredients)
 
-        return
-
     @transaction.atomic
     def create(self, validated_data):
         ingredients_data = validated_data.pop('ingredients')
@@ -171,6 +169,7 @@ class RecipeSerializer(serializers.ModelSerializer):
                 {'error':
                  'Теги и ингредиенты необходимы для обновления рецепта'}
             )
+        RecipeIngredient.objects.filter(recipe=instance).delete()
         self.bulk_ingredients(ingredients_data, instance)
         if tags_data:
             instance.tags.set(tags_data)
@@ -246,7 +245,6 @@ class FollowSerializer(serializers.ModelSerializer):
         return data
 
     def to_representation(self, instance):
-        print(instance)
         return FollowListSerializer(
             instance['following'], context=self.context
         ).data
